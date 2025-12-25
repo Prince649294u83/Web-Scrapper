@@ -5,35 +5,44 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+@Component
 public class WebScraper {
 
-    public static List<ScrapeResult> scrape(String url, String selector) throws Exception {
+    public List<ScrapeResult> scrape(String url, String selector) throws Exception {
 
-        Document document = Jsoup.connect(url)
+        Document doc = Jsoup.connect(url)
                 .userAgent("Mozilla/5.0")
-                .timeout(10_000)
+                .timeout(10000)
                 .get();
 
-        String pageTitle = document.title();
-        String timestamp = Instant.now().toString();
-
-        Elements elements = document.select(selector);
+        String pageTitle = doc.title();
         List<ScrapeResult> results = new ArrayList<>();
 
+        Elements elements;
+
+        // ✅ IF SELECTOR EMPTY → SCRAPE WHOLE PAGE
+        if (selector == null || selector.isBlank()) {
+            elements = doc.select("h1, h2, h3, p, li");
+        } else {
+            elements = doc.select(selector);
+        }
+
         int index = 1;
-        for (Element element : elements) {
-            results.add(new ScrapeResult(
-                    index++,
-                    element.tagName(),
-                    element.text(),
-                    pageTitle,
-                    timestamp
-            ));
+        for (Element el : elements) {
+            String text = el.text().trim();
+            if (!text.isEmpty()) {
+                results.add(new ScrapeResult(
+                        index++,
+                        el.tagName(),
+                        text,
+                        pageTitle
+                ));
+            }
         }
 
         return results;

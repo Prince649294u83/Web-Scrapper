@@ -1,239 +1,164 @@
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import "./App.css";
 
-function App() {
+export default function App() {
     const [url, setUrl] = useState("");
     const [selector, setSelector] = useState("");
     const [results, setResults] = useState([]);
-    const [summary, setSummary] = useState("");
     const [loading, setLoading] = useState(false);
-    const [summaryLoading, setSummaryLoading] = useState(false);
-    const [error, setError] = useState("");
 
-    // SCRAPE JSON DATA
     const scrape = async () => {
-        setError("");
         setResults([]);
-        setSummary("");
         setLoading(true);
 
         try {
-            const response = await fetch("http://localhost:8081/api/scrape", {
+            const res = await fetch("http://localhost:8081/api/scrape", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ url, selector }),
             });
 
-            if (!response.ok) throw new Error();
-
-            const data = await response.json();
+            const data = await res.json();
             setResults(data);
         } catch {
-            setError("❌ Unable to scrape. Please check the URL and selector.");
+            alert("Scraping failed");
         } finally {
             setLoading(false);
         }
     };
 
-    // CSV DOWNLOAD
     const downloadCSV = async () => {
-        try {
-            const response = await fetch("http://localhost:8081/api/scrape/csv", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, selector }),
-            });
+        const res = await fetch("http://localhost:8081/api/scrape/csv", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, selector }),
+        });
 
-            if (!response.ok) throw new Error();
-
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = downloadUrl;
-            a.download = "scrape-results.csv";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        } catch {
-            alert("❌ CSV download failed");
-        }
+        const blob = await res.blob();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "scrape-results.csv";
+        link.click();
     };
 
-    // 🤖 AI SUMMARY
-    const generateSummary = async () => {
-        setSummary("");
-        setSummaryLoading(true);
-
-        try {
-            const response = await fetch(
-                "http://localhost:8081/api/scrape/summary",
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url, selector }),
-                }
-            );
-
-            if (!response.ok) throw new Error();
-
-            const text = await response.text();
-            setSummary(text);
-        } catch {
-            setSummary("❌ Failed to generate AI summary.");
-        } finally {
-            setSummaryLoading(false);
-        }
-    };
+    const presets = [
+        { label: "Headlines (h1, h2)", value: "h1, h2" },
+        { label: "All Links", value: "a" },
+        { label: "Main Text", value: "p" },
+        { label: "List Items", value: "li" },
+        { label: "Product Titles", value: ".product-title, h2" },
+        { label: "Product Prices", value: ".price, .amount" },
+    ];
 
     return (
-        <div style={pageStyle}>
-            <div style={cardStyle}>
-                <h1 style={{ textAlign: "center" }}>Web Intelligence App</h1>
+        <div className="page">
+            {/* STICKY HEADER */}
+            <header className="header">
+                <div>
+                    <span className="tool-badge">TOOLS</span>
+                    <h1>Web Scraper</h1>
+                    <p>Extract data from any website using CSS selectors.</p>
+                </div>
 
-                <label>Website URL</label>
-                <input
-                    style={inputStyle}
-                    placeholder="https://example.com"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                />
+                <div className="header-actions">
+                    <button className="ghost" onClick={() => setResults([])}>Clear</button>
+                    <button className="primary" onClick={downloadCSV}>Export CSV</button>
+                </div>
+            </header>
 
-                <label style={{ marginTop: 12 }}>CSS Selector</label>
-                <input
-                    style={inputStyle}
-                    placeholder="p"
-                    value={selector}
-                    onChange={(e) => setSelector(e.target.value)}
-                />
+            {/* SPLIT LAYOUT */}
+            <div className="layout full">
+            {/* LEFT PANEL */}
+                <motion.section
+                    className="panel glass"
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                >
+                    <h3>Configuration</h3>
 
-                <button onClick={scrape} style={primaryButton}>
-                    Scrape Website
-                </button>
+                    <label>Website URL</label>
+                    <input
+                        placeholder="https://example.com"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                    />
 
-                {loading && <p style={{ color: "#facc15" }}>⏳ Scraping…</p>}
-                {error && <p style={{ color: "#ef4444" }}>{error}</p>}
+                    <label>CSS Selector</label>
+                    <input
+                        placeholder="h1, p, a"
+                        value={selector}
+                        onChange={(e) => setSelector(e.target.value)}
+                    />
 
-                {results.length > 0 && (
-                    <>
-                        <table style={tableStyle}>
-                            <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Tag</th>
-                                <th>Text</th>
-                                <th>Page Title</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {results.map((r) => (
-                                <tr key={r.index}>
-                                    <td>{r.index}</td>
-                                    <td>{r.tag}</td>
-                                    <td>{r.text}</td>
-                                    <td>{r.pageTitle}</td>
-                                </tr>
+                    <button className="primary full" onClick={scrape}>
+                        Start Scraping
+                    </button>
+
+                    <div className="presets">
+                        {presets.map((p) => (
+                            <button key={p.label} onClick={() => setSelector(p.value)}>
+                                {p.label}
+                            </button>
+                        ))}
+                    </div>
+                </motion.section>
+
+                {/* RIGHT PANEL */}
+                <motion.section
+                    className="panel glass"
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                >
+                    <h3>Results</h3>
+
+                    {/* SKELETON LOADER */}
+                    {loading && (
+                        <div className="skeleton-list">
+                            {[1, 2, 3, 4].map((i) => (
+                                <div key={i} className="skeleton" />
                             ))}
-                            </tbody>
-                        </table>
+                        </div>
+                    )}
 
-                        <button onClick={downloadCSV} style={csvButton}>
-                            ⬇️ Download CSV
-                        </button>
-
-                        <button onClick={generateSummary} style={aiButton}>
-                            🤖 Generate AI Summary
-                        </button>
-
-                        {summaryLoading && (
-                            <p style={{ color: "#38bdf8" }}>
-                                🤖 Generating summary…
-                            </p>
+                    {/* RESULTS TABLE */}
+                    <AnimatePresence>
+                        {!loading && results.length > 0 && (
+                            <motion.table
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                            >
+                                <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Tag</th>
+                                    <th>Text</th>
+                                    <th>Title</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {results.map((r) => (
+                                    <tr key={r.index}>
+                                        <td>{r.index}</td>
+                                        <td>{r.tag}</td>
+                                        <td>{r.text}</td>
+                                        <td>{r.pageTitle}</td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </motion.table>
                         )}
+                    </AnimatePresence>
 
-                        {summary && (
-                            <div style={summaryBox}>
-                                <h3>AI Summary</h3>
-                                <pre style={{ whiteSpace: "pre-wrap" }}>
-                                    {summary}
-                                </pre>
-                            </div>
-                        )}
-                    </>
-                )}
+                    {!loading && results.length === 0 && (
+                        <div className="empty">
+                            <span>🔍</span>
+                            <p>No results to show</p>
+                        </div>
+                    )}
+                </motion.section>
             </div>
         </div>
     );
 }
-
-/* STYLES */
-
-const pageStyle = {
-    minHeight: "100vh",
-    background: "#121212",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    color: "#fff",
-};
-
-const cardStyle = {
-    width: "90%",
-    maxWidth: 900,
-    background: "#1e1e1e",
-    padding: 30,
-    borderRadius: 12,
-};
-
-const inputStyle = {
-    width: "100%",
-    padding: 10,
-    marginTop: 6,
-    marginBottom: 12,
-    borderRadius: 6,
-    border: "1px solid #333",
-    background: "#000",
-    color: "#fff",
-};
-
-const primaryButton = {
-    width: "100%",
-    padding: 12,
-    background: "#fff",
-    color: "#000",
-    fontWeight: "bold",
-    borderRadius: 8,
-    cursor: "pointer",
-};
-
-const csvButton = {
-    marginTop: 16,
-    padding: 10,
-    width: "100%",
-    background: "#22c55e",
-    borderRadius: 6,
-    fontWeight: "bold",
-};
-
-const aiButton = {
-    marginTop: 10,
-    padding: 10,
-    width: "100%",
-    background: "#38bdf8",
-    borderRadius: 6,
-    fontWeight: "bold",
-};
-
-const tableStyle = {
-    width: "100%",
-    marginTop: 20,
-    borderCollapse: "collapse",
-};
-
-const summaryBox = {
-    marginTop: 16,
-    padding: 16,
-    background: "#0f172a",
-    borderRadius: 8,
-};
-
-export default App;

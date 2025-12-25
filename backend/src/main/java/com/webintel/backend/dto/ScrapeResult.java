@@ -1,19 +1,23 @@
 package com.webintel.backend.dto;
 
+import java.time.LocalDateTime;
+
 public class ScrapeResult {
 
     private int index;
     private String tag;
     private String text;
     private String pageTitle;
-    private String timestamp;
+    private LocalDateTime timestamp;
 
-    public ScrapeResult(int index, String tag, String text, String pageTitle, String timestamp) {
+    public ScrapeResult() {}
+
+    public ScrapeResult(int index, String tag, String text, String pageTitle) {
         this.index = index;
         this.tag = tag;
         this.text = text;
         this.pageTitle = pageTitle;
-        this.timestamp = timestamp;
+        this.timestamp = LocalDateTime.now();
     }
 
     public int getIndex() {
@@ -32,7 +36,7 @@ public class ScrapeResult {
         return pageTitle;
     }
 
-    public String getTimestamp() {
+    public LocalDateTime getTimestamp() {
         return timestamp;
     }
 }

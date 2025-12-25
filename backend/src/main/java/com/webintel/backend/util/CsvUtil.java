@@ -6,26 +6,19 @@ import java.util.List;
 
 public class CsvUtil {
 
-    public static String convertToCsv(List<ScrapeResult> results) {
-        StringBuilder csv = new StringBuilder();
+    public static String generateCsv(List<ScrapeResult> results) {
 
-        // Header
-        csv.append("Index,Tag,Text,Page Title,Timestamp\n");
+        StringBuilder sb = new StringBuilder();
+        sb.append("Index,Tag,Text,Page Title,Timestamp\n");
 
-        // Rows
-        for (ScrapeResult result : results) {
-            csv.append(result.getIndex()).append(",");
-            csv.append(escape(result.getTag())).append(",");
-            csv.append(escape(result.getText())).append(",");
-            csv.append(escape(result.getPageTitle())).append(",");
-            csv.append(result.getTimestamp()).append("\n");
+        for (ScrapeResult r : results) {
+            sb.append(r.getIndex()).append(",")
+                    .append(r.getTag()).append(",")
+                    .append("\"").append(r.getText().replace("\"", "\"\"")).append("\",")
+                    .append("\"").append(r.getPageTitle()).append("\",")
+                    .append(r.getTimestamp()).append("\n");
         }
 
-        return csv.toString();
-    }
-
-    private static String escape(String value) {
-        if (value == null) return "";
-        return "\"" + value.replace("\"", "\"\"") + "\"";
+        return sb.toString();
     }
 }

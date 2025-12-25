@@ -3,11 +3,11 @@ package com.webintel.backend.controller;
 import com.webintel.backend.dto.ScrapeRequest;
 import com.webintel.backend.dto.ScrapeResult;
 import com.webintel.backend.service.ScrapeService;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.MediaType;
+import com.webintel.backend.util.CsvUtil;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.PrintWriter;
 import java.util.List;
 
 @RestController
@@ -21,44 +21,30 @@ public class ScrapeController {
         this.scrapeService = scrapeService;
     }
 
-    // 🔹 JSON SCRAPE
+    // ✅ MAIN SCRAPE ENDPOINT (FOR TABLE)
     @PostMapping
     public List<ScrapeResult> scrape(@RequestBody ScrapeRequest request) {
         return scrapeService.scrape(request);
     }
 
-    // 🔹 CSV DOWNLOAD
+    // ✅ CSV DOWNLOAD
     @PostMapping("/csv")
-    public void downloadCsv(
-            @RequestBody ScrapeRequest request,
-            HttpServletResponse response
-    ) throws Exception {
+    public ResponseEntity<byte[]> downloadCsv(@RequestBody ScrapeRequest request) {
 
         List<ScrapeResult> results = scrapeService.scrape(request);
+        String csv = CsvUtil.generateCsv(results);
 
-        response.setContentType("text/csv");
-        response.setHeader("Content-Disposition",
-                "attachment; filename=scrape-results.csv");
-
-        PrintWriter writer = response.getWriter();
-        writer.println("Index,Tag,Text,PageTitle");
-
-        for (ScrapeResult r : results) {
-            writer.printf(
-                    "%d,%s,\"%s\",\"%s\"%n",
-                    r.getIndex(),
-                    r.getTag(),
-                    r.getText().replace("\"", "\"\""),
-                    r.getPageTitle()
-            );
-        }
-
-        writer.flush();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"scrape-results.csv\"")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv")
+                .body(csv.getBytes());
     }
 
     // 🤖 AI SUMMARY
-    @PostMapping(value = "/summary", produces = MediaType.TEXT_PLAIN_VALUE)
-    public String generateSummary(@RequestBody ScrapeRequest request) {
-        return scrapeService.generateSummary(request);
+    @PostMapping("/summary")
+    public ResponseEntity<String> generateSummary(@RequestBody ScrapeRequest request) {
+        String summary = scrapeService.generateSummary(request);
+        return ResponseEntity.ok(summary);
     }
 }
