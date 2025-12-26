@@ -10,7 +10,8 @@ public class ScrapeResult {
     private String pageTitle;
     private LocalDateTime timestamp;
 
-    public ScrapeResult() {}
+    public ScrapeResult() {
+    }
 
     public ScrapeResult(int index, String tag, String text, String pageTitle) {
         this.index = index;

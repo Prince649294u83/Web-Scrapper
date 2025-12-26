@@ -9,15 +9,7 @@ public class ScrapeRequest {
         return url;
     }
 
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
     public String getSelector() {
         return selector;
-    }
-
-    public void setSelector(String selector) {
-        this.selector = selector;
     }
 }

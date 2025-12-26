@@ -12,39 +12,34 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/scrape")
-@CrossOrigin(origins = "*")
+@CrossOrigin
 public class ScrapeController {
 
-    private final ScrapeService scrapeService;
+    private final ScrapeService service;
 
-    public ScrapeController(ScrapeService scrapeService) {
-        this.scrapeService = scrapeService;
+    public ScrapeController(ScrapeService service) {
+        this.service = service;
     }
 
-    // ✅ MAIN SCRAPE ENDPOINT (FOR TABLE)
     @PostMapping
     public List<ScrapeResult> scrape(@RequestBody ScrapeRequest request) {
-        return scrapeService.scrape(request);
+        return service.scrape(request);
     }
 
-    // ✅ CSV DOWNLOAD
     @PostMapping("/csv")
-    public ResponseEntity<byte[]> downloadCsv(@RequestBody ScrapeRequest request) {
+    public ResponseEntity<String> csv(@RequestBody ScrapeRequest request) {
 
-        List<ScrapeResult> results = scrapeService.scrape(request);
-        String csv = CsvUtil.generateCsv(results);
+        List<ScrapeResult> results = service.scrape(request);
+        String csv = CsvUtil.toCsv(results);
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"scrape-results.csv\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=scrape-results.csv")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv")
-                .body(csv.getBytes());
+                .body(csv);
     }
 
-    // 🤖 AI SUMMARY
     @PostMapping("/summary")
-    public ResponseEntity<String> generateSummary(@RequestBody ScrapeRequest request) {
-        String summary = scrapeService.generateSummary(request);
-        return ResponseEntity.ok(summary);
+    public String summary(@RequestBody ScrapeRequest request) {
+        return service.generateSummary(request);
     }
 }

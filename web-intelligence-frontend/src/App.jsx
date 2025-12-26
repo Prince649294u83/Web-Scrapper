@@ -6,10 +6,13 @@ export default function App() {
     const [url, setUrl] = useState("");
     const [selector, setSelector] = useState("");
     const [results, setResults] = useState([]);
+    const [summary, setSummary] = useState("");
     const [loading, setLoading] = useState(false);
+    const [summaryLoading, setSummaryLoading] = useState(false);
 
     const scrape = async () => {
         setResults([]);
+        setSummary("");
         setLoading(true);
 
         try {
@@ -29,6 +32,8 @@ export default function App() {
     };
 
     const downloadCSV = async () => {
+        if (results.length === 0) return;
+
         const res = await fetch("http://localhost:8081/api/scrape/csv", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -42,34 +47,66 @@ export default function App() {
         link.click();
     };
 
+    const clearAll = () => {
+        setResults([]);
+        setSummary("");
+    };
+
+    const generateSummary = async () => {
+        setSummary("");
+        setSummaryLoading(true);
+
+        try {
+            const res = await fetch("http://localhost:8081/api/scrape/summary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url, selector }),
+            });
+
+            const text = await res.text();
+            setSummary(text);
+        } catch {
+            setSummary("Failed to generate summary.");
+        } finally {
+            setSummaryLoading(false);
+        }
+    };
+
     const presets = [
-        { label: "Headlines (h1, h2)", value: "h1, h2" },
-        { label: "All Links", value: "a" },
-        { label: "Main Text", value: "p" },
+        { label: "Whole Page", value: "" },
+        { label: "Headings", value: "h1, h2" },
+        { label: "Paragraphs", value: "p" },
+        { label: "Links", value: "a" },
         { label: "List Items", value: "li" },
-        { label: "Product Titles", value: ".product-title, h2" },
-        { label: "Product Prices", value: ".price, .amount" },
     ];
 
     return (
         <div className="page">
-            {/* STICKY HEADER */}
-            <header className="header">
+            {/* HEADER */}
+            <header className="header glass">
                 <div>
-                    <span className="tool-badge">TOOLS</span>
+                    <span className="tool-badge">WEB INTELLIGENCE</span>
                     <h1>Web Scraper</h1>
-                    <p>Extract data from any website using CSS selectors.</p>
+                    <p>Extract, analyze and summarize web content</p>
                 </div>
 
                 <div className="header-actions">
-                    <button className="ghost" onClick={() => setResults([])}>Clear</button>
-                    <button className="primary" onClick={downloadCSV}>Export CSV</button>
+                    <button className="ghost" onClick={clearAll}>
+                        Clear
+                    </button>
+                    <button
+                        className="primary"
+                        onClick={downloadCSV}
+                        disabled={results.length === 0}
+                    >
+                        Export CSV
+                    </button>
                 </div>
             </header>
 
-            {/* SPLIT LAYOUT */}
-            <div className="layout full">
-            {/* LEFT PANEL */}
+            {/* MAIN LAYOUT */}
+            <div className="layout">
+                {/* CONFIG */}
                 <motion.section
                     className="panel glass"
                     initial={{ opacity: 0, x: -30 }}
@@ -86,7 +123,7 @@ export default function App() {
 
                     <label>CSS Selector</label>
                     <input
-                        placeholder="h1, p, a"
+                        placeholder="Leave empty for full page"
                         value={selector}
                         onChange={(e) => setSelector(e.target.value)}
                     />
@@ -104,15 +141,14 @@ export default function App() {
                     </div>
                 </motion.section>
 
-                {/* RIGHT PANEL */}
+                {/* RESULTS */}
                 <motion.section
-                    className="panel glass"
+                    className="panel glass results-panel"
                     initial={{ opacity: 0, x: 30 }}
                     animate={{ opacity: 1, x: 0 }}
                 >
                     <h3>Results</h3>
 
-                    {/* SKELETON LOADER */}
                     {loading && (
                         <div className="skeleton-list">
                             {[1, 2, 3, 4].map((i) => (
@@ -121,7 +157,13 @@ export default function App() {
                         </div>
                     )}
 
-                    {/* RESULTS TABLE */}
+                    {!loading && results.length === 0 && (
+                        <div className="empty">
+                            <span>🔍</span>
+                            <p>No results yet</p>
+                        </div>
+                    )}
+
                     <AnimatePresence>
                         {!loading && results.length > 0 && (
                             <motion.table
@@ -151,11 +193,25 @@ export default function App() {
                         )}
                     </AnimatePresence>
 
-                    {!loading && results.length === 0 && (
-                        <div className="empty">
-                            <span>🔍</span>
-                            <p>No results to show</p>
-                        </div>
+                    {results.length > 0 && (
+                        <>
+                            <button className="ghost full" onClick={generateSummary}>
+                                🤖 Generate AI Summary
+                            </button>
+
+                            {summaryLoading && (
+                                <p className="ai-loading">Analyzing content…</p>
+                            )}
+
+                            {summary && (
+                                <div className="ai-summary">
+                                    <h4>AI Summary</h4>
+                                    {summary.split("\n").map((line, i) => (
+                                        <p key={i}>{line}</p>
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     )}
                 </motion.section>
             </div>

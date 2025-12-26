@@ -6,17 +6,17 @@ import java.util.List;
 
 public class CsvUtil {
 
-    public static String generateCsv(List<ScrapeResult> results) {
+    public static String toCsv(List<ScrapeResult> results) {
 
         StringBuilder sb = new StringBuilder();
-        sb.append("Index,Tag,Text,Page Title,Timestamp\n");
+        sb.append("Index,Tag,Text,PageTitle,Timestamp\n");
 
         for (ScrapeResult r : results) {
-            sb.append(r.getIndex()).append(",")
-                    .append(r.getTag()).append(",")
-                    .append("\"").append(r.getText().replace("\"", "\"\"")).append("\",")
-                    .append("\"").append(r.getPageTitle()).append("\",")
-                    .append(r.getTimestamp()).append("\n");
+            sb.append(r.getIndex()).append(",");
+            sb.append(r.getTag()).append(",");
+            sb.append("\"").append(r.getText().replace("\"", "\"\"")).append("\",");
+            sb.append("\"").append(r.getPageTitle()).append("\",");
+            sb.append(r.getTimestamp()).append("\n");
         }
 
         return sb.toString();

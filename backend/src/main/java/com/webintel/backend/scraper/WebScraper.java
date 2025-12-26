@@ -5,44 +5,40 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Component
 public class WebScraper {
 
-    public List<ScrapeResult> scrape(String url, String selector) throws Exception {
+    public static List<ScrapeResult> scrape(String url, String selector) throws Exception {
 
         Document doc = Jsoup.connect(url)
                 .userAgent("Mozilla/5.0")
-                .timeout(10000)
+                .timeout(15000)
                 .get();
 
-        String pageTitle = doc.title();
-        List<ScrapeResult> results = new ArrayList<>();
+        String title = doc.title();
 
-        Elements elements;
-
-        // ✅ IF SELECTOR EMPTY → SCRAPE WHOLE PAGE
+        // 👉 WHOLE PAGE MODE
         if (selector == null || selector.isBlank()) {
-            elements = doc.select("h1, h2, h3, p, li");
-        } else {
-            elements = doc.select(selector);
+            selector = "body *";
         }
+
+        Elements elements = doc.select(selector);
+        List<ScrapeResult> results = new ArrayList<>();
 
         int index = 1;
         for (Element el : elements) {
             String text = el.text().trim();
-            if (!text.isEmpty()) {
-                results.add(new ScrapeResult(
-                        index++,
-                        el.tagName(),
-                        text,
-                        pageTitle
-                ));
-            }
+            if (text.isEmpty()) continue;
+
+            results.add(new ScrapeResult(
+                    index++,
+                    el.tagName(),
+                    text,
+                    title
+            ));
         }
 
         return results;

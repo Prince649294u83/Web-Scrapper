@@ -6,38 +6,26 @@ import com.webintel.backend.scraper.WebScraper;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ScrapeService {
 
-    private final WebScraper scraper;
-
-    public ScrapeService(WebScraper scraper) {
-        this.scraper = scraper;
-    }
-
     public List<ScrapeResult> scrape(ScrapeRequest request) {
         try {
-            return scraper.scrape(request.getUrl(), request.getSelector());
+            return WebScraper.scrape(request.getUrl(), request.getSelector());
         } catch (Exception e) {
-            throw new RuntimeException("Scraping failed");
+            throw new RuntimeException("Scraping failed: " + e.getMessage());
         }
     }
 
     public String generateSummary(ScrapeRequest request) {
         List<ScrapeResult> results = scrape(request);
 
-        if (results.isEmpty()) {
-            return "No content found to summarize.";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Page Title: ").append(results.get(0).getPageTitle()).append("\n\n");
-
-        results.stream()
-                .limit(10)
-                .forEach(r -> sb.append("- ").append(r.getText()).append("\n"));
-
-        return sb.toString();
+        return results.stream()
+                .map(ScrapeResult::getText)
+                .distinct()
+                .limit(20)
+                .collect(Collectors.joining(". ")) + ".";
     }
 }
