@@ -1,219 +1,261 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useMemo } from "react";
 import "./App.css";
+
+const PAGE_SIZE = 25;
 
 export default function App() {
     const [url, setUrl] = useState("");
-    const [selector, setSelector] = useState("");
-    const [results, setResults] = useState([]);
-    const [summary, setSummary] = useState("");
+    const [prompt, setPrompt] = useState("");
+    const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [summaryLoading, setSummaryLoading] = useState(false);
 
+    const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+
+    /* =========================
+       SCRAPE
+       ========================= */
     const scrape = async () => {
-        setResults([]);
-        setSummary("");
+        if (!url || !prompt) {
+            alert("Please enter both URL and extraction request");
+            return;
+        }
+
         setLoading(true);
+        setResult(null);
+        setSearch("");
+        setPage(1);
 
         try {
-            const res = await fetch("http://localhost:8081/api/scrape", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, selector }),
-            });
+            const response = await fetch(
+                "http://localhost:8081/api/smart-scrape/preview",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        targetUrl: url,
+                        userPrompt: prompt,
+                    }),
+                }
+            );
 
-            const data = await res.json();
-            setResults(data);
+            const data = await response.json();
+            setResult(data);
         } catch {
-            alert("Scraping failed");
+            alert("Failed to extract content");
         } finally {
             setLoading(false);
         }
     };
 
-    const downloadCSV = async () => {
-        if (results.length === 0) return;
+    /* =========================
+       CSV DOWNLOAD
+       ========================= */
+    const downloadCsv = async () => {
+        const response = await fetch(
+            "http://localhost:8081/api/smart-scrape/export/csv",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetUrl: url, userPrompt: prompt }),
+            }
+        );
 
-        const res = await fetch("http://localhost:8081/api/scrape/csv", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, selector }),
-        });
-
-        const blob = await res.blob();
+        const blob = await response.blob();
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "scrape-results.csv";
+        link.download = "scraped_data.csv";
         link.click();
     };
 
-    const clearAll = () => {
-        setResults([]);
-        setSummary("");
-    };
+    /* =========================
+       FLATTEN DATA (MEMOIZED)
+       ========================= */
+    const rows = useMemo(() => {
+        if (!result?.pages) return [];
 
-    const generateSummary = async () => {
-        setSummary("");
-        setSummaryLoading(true);
+        const all = [];
 
-        try {
-            const res = await fetch("http://localhost:8081/api/scrape/summary", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, selector }),
-            });
+        result.pages.forEach((page) => {
+            page.headings?.forEach((h) =>
+                all.push({ page: page.pageUrl, type: "Heading", content: h })
+            );
+            page.paragraphs?.forEach((p) =>
+                all.push({ page: page.pageUrl, type: "Paragraph", content: p })
+            );
+            page.links?.forEach((l) =>
+                all.push({ page: page.pageUrl, type: "Link", content: l })
+            );
+            page.images?.forEach((i) =>
+                all.push({ page: page.pageUrl, type: "Image", content: i })
+            );
+        });
 
-            const text = await res.text();
-            setSummary(text);
-        } catch {
-            setSummary("Failed to generate summary.");
-        } finally {
-            setSummaryLoading(false);
-        }
-    };
+        return all;
+    }, [result]);
 
-    const presets = [
-        { label: "Whole Page", value: "" },
-        { label: "Headings", value: "h1, h2" },
-        { label: "Paragraphs", value: "p" },
-        { label: "Links", value: "a" },
-        { label: "List Items", value: "li" },
-    ];
+    /* =========================
+       SEARCH (FAST)
+       ========================= */
+    const filtered = useMemo(() => {
+        if (!search) return rows;
+        const q = search.toLowerCase();
+        return rows.filter(
+            (r) =>
+                r.content.toLowerCase().includes(q) ||
+                r.type.toLowerCase().includes(q) ||
+                r.page.toLowerCase().includes(q)
+        );
+    }, [rows, search]);
 
+    /* =========================
+       PAGINATION
+       ========================= */
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+    const paginated = useMemo(() => {
+        const start = (page - 1) * PAGE_SIZE;
+        return filtered.slice(start, start + PAGE_SIZE);
+    }, [filtered, page]);
+
+    /* =========================
+       RENDER
+       ========================= */
     return (
         <div className="page">
-            {/* HEADER */}
             <header className="header glass">
-                <div>
-                    <span className="tool-badge">WEB INTELLIGENCE</span>
-                    <h1>Web Scraper</h1>
-                    <p>Extract, analyze and summarize web content</p>
-                </div>
-
-                <div className="header-actions">
-                    <button className="ghost" onClick={clearAll}>
-                        Clear
-                    </button>
-                    <button
-                        className="primary"
-                        onClick={downloadCSV}
-                        disabled={results.length === 0}
-                    >
-                        Export CSV
-                    </button>
-                </div>
+                <span className="tool-badge">WEB INTELLIGENCE</span>
+                <h1>Smart Web Scraper</h1>
+                <p>Extract structured web content using AI-assisted intent</p>
             </header>
 
-            {/* MAIN LAYOUT */}
             <div className="layout">
-                {/* CONFIG */}
-                <motion.section
-                    className="panel glass"
-                    initial={{ opacity: 0, x: -30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                >
-                    <h3>Configuration</h3>
-
-                    <label>Website URL</label>
+                {/* INPUT */}
+                <section className="panel glass">
+                    <label htmlFor="url">Website URL</label>
                     <input
-                        placeholder="https://example.com"
+                        id="url"
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
+                        placeholder="https://example.com"
                     />
 
-                    <label>CSS Selector</label>
-                    <input
-                        placeholder="Leave empty for full page"
-                        value={selector}
-                        onChange={(e) => setSelector(e.target.value)}
+                    <label htmlFor="prompt">What do you want to extract?</label>
+                    <textarea
+                        id="prompt"
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        placeholder="Extract main content, images and links"
                     />
 
-                    <button className="primary full" onClick={scrape}>
-                        Start Scraping
+                    <button
+                        className="primary full"
+                        onClick={scrape}
+                        disabled={loading}
+                    >
+                        {loading ? "Analyzing…" : "Extract"}
                     </button>
-
-                    <div className="presets">
-                        {presets.map((p) => (
-                            <button key={p.label} onClick={() => setSelector(p.value)}>
-                                {p.label}
-                            </button>
-                        ))}
-                    </div>
-                </motion.section>
+                </section>
 
                 {/* RESULTS */}
-                <motion.section
-                    className="panel glass results-panel"
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                >
-                    <h3>Results</h3>
+                {result && (
+                    <section className="panel glass results-panel">
+                        <h3>Extracted Data</h3>
 
-                    {loading && (
-                        <div className="skeleton-list">
-                            {[1, 2, 3, 4].map((i) => (
-                                <div key={i} className="skeleton" />
-                            ))}
-                        </div>
-                    )}
+                        {/* SEARCH */}
+                        <input
+                            className="full"
+                            placeholder="Search across all extracted content…"
+                            value={search}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setPage(1);
+                            }}
+                            aria-label="Search extracted data"
+                        />
 
-                    {!loading && results.length === 0 && (
-                        <div className="empty">
-                            <span>🔍</span>
-                            <p>No results yet</p>
-                        </div>
-                    )}
-
-                    <AnimatePresence>
-                        {!loading && results.length > 0 && (
-                            <motion.table
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                            >
+                        {/* TABLE CONTAINER (SCROLL SAFE) */}
+                        <div style={{ overflowX: "auto", marginTop: 16 }}>
+                            <table className="data-table" role="table">
                                 <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <th>Tag</th>
-                                    <th>Text</th>
-                                    <th>Title</th>
+                                    <th scope="col">Page</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Content</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                {results.map((r) => (
-                                    <tr key={r.index}>
-                                        <td>{r.index}</td>
-                                        <td>{r.tag}</td>
-                                        <td>{r.text}</td>
-                                        <td>{r.pageTitle}</td>
+                                {paginated.map((row, i) => (
+                                    <tr key={i}>
+                                        <td title={row.page}>{row.page}</td>
+                                        <td>{row.type}</td>
+                                        <td>
+                                            {row.type === "Image" ? (
+                                                <img
+                                                    src={row.content}
+                                                    alt="Scraped visual content"
+                                                    className="table-image"
+                                                    loading="lazy"
+                                                />
+                                            ) : row.type === "Link" ? (
+                                                <a
+                                                    href={row.content}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    {row.content}
+                                                </a>
+                                            ) : (
+                                                <span>{row.content}</span>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                                 </tbody>
-                            </motion.table>
-                        )}
-                    </AnimatePresence>
+                            </table>
+                        </div>
 
-                    {results.length > 0 && (
-                        <>
-                            <button className="ghost full" onClick={generateSummary}>
-                                🤖 Generate AI Summary
+                        {/* PAGINATION */}
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginTop: 16,
+                            }}
+                        >
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage((p) => p - 1)}
+                            >
+                                Previous
                             </button>
 
-                            {summaryLoading && (
-                                <p className="ai-loading">Analyzing content…</p>
-                            )}
+                            <span>
+                                Page {page} of {totalPages}
+                            </span>
 
-                            {summary && (
-                                <div className="ai-summary">
-                                    <h4>AI Summary</h4>
-                                    {summary.split("\n").map((line, i) => (
-                                        <p key={i}>{line}</p>
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-                </motion.section>
+                            <button
+                                disabled={page === totalPages}
+                                onClick={() => setPage((p) => p + 1)}
+                            >
+                                Next
+                            </button>
+                        </div>
+
+                        <button className="primary full" onClick={downloadCsv}>
+                            Download CSV
+                        </button>
+
+                        {/* AI SUMMARY — ALWAYS LAST */}
+                        {result.summary && (
+                            <div className="ai-summary" style={{ marginTop: 32 }}>
+                                <h4>AI Summary</h4>
+                                <p>{result.summary}</p>
+                            </div>
+                        )}
+                    </section>
+                )}
             </div>
         </div>
     );

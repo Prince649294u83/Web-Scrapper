@@ -1,54 +1,75 @@
 package com.webintel.backend.ai;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 
 @Service
 public class AiSummaryService {
 
-    @Value("${ai.api.key}")
-    private String apiKey;
+    private final LocalAiClient ai;
 
-    public String summarize(String content) throws Exception {
+    // HARD safety limits (frontend + LLM protection)
+    private static final int MAX_INPUT_CHARS = 8000;
+    private static final int MAX_OUTPUT_CHARS = 1200;
 
-        String requestBody = """
-        {
-          "model": "gpt-4o-mini",
-          "messages": [
-            {
-              "role": "system",
-              "content": "You summarize scraped web content into clear, concise insights."
-            },
-            {
-              "role": "user",
-              "content": "%s"
-            }
-          ],
-          "temperature": 0.3
+    public AiSummaryService(LocalAiClient ai) {
+        this.ai = ai;
+    }
+
+    /**
+     * Generates a stable, readable AI summary.
+     * GUARANTEED not to break UI or freeze rendering.
+     */
+    public String summarize(String content) {
+
+        if (content == null || content.isBlank()) {
+            return "No meaningful text was found to generate a summary.";
         }
-        """.formatted(content.replace("\"", "\\\""));
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.openai.com/v1/chat/completions"))
-                .header("Authorization", "Bearer " + apiKey)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .build();
+        // 🔒 HARD trim input (critical for Ollama + UI)
+        String trimmedContent = content.length() > MAX_INPUT_CHARS
+                ? content.substring(0, MAX_INPUT_CHARS)
+                : content;
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response =
-                client.send(request, HttpResponse.BodyHandlers.ofString());
+        String prompt = """
+You are a professional web content summarizer.
 
-        // Simple extraction (good enough for now)
-        String body = response.body();
-        int start = body.indexOf("\"content\":\"") + 11;
-        int end = body.indexOf("\"", start);
+TASK:
+Summarize the following content clearly and concisely.
 
-        return body.substring(start, end).replace("\\n", "\n");
+STRICT RULES:
+- Focus on key ideas and useful information
+- Use short paragraphs or bullet points
+- Do NOT repeat raw text
+- Do NOT add introductions or conclusions
+- Do NOT mention AI or summarization
+
+CONTENT:
+%s
+""".formatted(trimmedContent);
+
+        try {
+            String response = ai.generate(prompt);
+
+            // Absolute safety fallback
+            if (response == null || response.isBlank()) {
+                return "Summary could not be generated.";
+            }
+
+            // 🔧 Normalize output for UI stability
+            String cleaned = response
+                    .replaceAll("[\\r\\n]{3,}", "\n\n")
+                    .replaceAll("\\s{2,}", " ")
+                    .trim();
+
+            // 🔒 HARD cap output length
+            if (cleaned.length() > MAX_OUTPUT_CHARS) {
+                cleaned = cleaned.substring(0, MAX_OUTPUT_CHARS) + "...";
+            }
+
+            return cleaned;
+
+        } catch (Exception e) {
+            return "AI summary generation failed.";
+        }
     }
 }

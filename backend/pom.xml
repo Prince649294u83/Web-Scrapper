@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="
+           http://maven.apache.org/POM/4.0.0
+           https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
 
+    <!-- ========================================================= -->
+    <!-- SPRING BOOT PARENT -->
+    <!-- ========================================================= -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
@@ -13,29 +17,58 @@
         <relativePath/>
     </parent>
 
+    <!-- ========================================================= -->
+    <!-- PROJECT INFO -->
+    <!-- ========================================================= -->
     <groupId>com.webintel</groupId>
     <artifactId>backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>backend</name>
     <description>Web Intelligence Backend</description>
 
+    <!-- ========================================================= -->
+    <!-- JAVA VERSION -->
+    <!-- ========================================================= -->
     <properties>
         <java.version>17</java.version>
     </properties>
 
+    <!-- ========================================================= -->
+    <!-- DEPENDENCIES -->
+    <!-- ========================================================= -->
     <dependencies>
 
-        <!-- Spring Boot Web (REST APIs, JSON, Tomcat) -->
+        <!-- Spring Boot Web -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Jsoup HTML Parser -->
+        <!-- Jackson -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- Jsoup -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>1.17.2</version>
+        </dependency>
+
+        <!-- Vector math -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <version>3.6.1</version>
+        </dependency>
+
+        <!-- 🔥 PDF GENERATION (OpenPDF) -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.30</version>
         </dependency>
 
         <!-- Lombok -->
@@ -45,7 +78,7 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Testing -->
+        <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -54,12 +87,19 @@
 
     </dependencies>
 
+    <!-- ========================================================= -->
+    <!-- BUILD -->
+    <!-- ========================================================= -->
     <build>
         <plugins>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
             </plugin>
 
             <plugin>
