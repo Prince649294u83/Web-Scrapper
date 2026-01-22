@@ -69,7 +69,27 @@ export default function App() {
     };
 
     /* =========================
-       FLATTEN DATA (MEMOIZED)
+       PDF DOWNLOAD (NEW)
+       ========================= */
+    const downloadPdf = async () => {
+        const response = await fetch(
+            "http://localhost:8081/api/smart-scrape/export/pdf",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ targetUrl: url, userPrompt: prompt }),
+            }
+        );
+
+        const blob = await response.blob();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "web_intelligence_report.pdf";
+        link.click();
+    };
+
+    /* =========================
+       FLATTEN DATA
        ========================= */
     const rows = useMemo(() => {
         if (!result?.pages) return [];
@@ -95,7 +115,7 @@ export default function App() {
     }, [result]);
 
     /* =========================
-       SEARCH (FAST)
+       SEARCH
        ========================= */
     const filtered = useMemo(() => {
         if (!search) return rows;
@@ -132,17 +152,15 @@ export default function App() {
             <div className="layout">
                 {/* INPUT */}
                 <section className="panel glass">
-                    <label htmlFor="url">Website URL</label>
+                    <label>Website URL</label>
                     <input
-                        id="url"
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         placeholder="https://example.com"
                     />
 
-                    <label htmlFor="prompt">What do you want to extract?</label>
+                    <label>What do you want to extract?</label>
                     <textarea
-                        id="prompt"
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         placeholder="Extract main content, images and links"
@@ -162,51 +180,46 @@ export default function App() {
                     <section className="panel glass results-panel">
                         <h3>Extracted Data</h3>
 
-                        {/* SEARCH */}
                         <input
                             className="full"
-                            placeholder="Search across all extracted content…"
+                            placeholder="Search extracted content…"
                             value={search}
                             onChange={(e) => {
                                 setSearch(e.target.value);
                                 setPage(1);
                             }}
-                            aria-label="Search extracted data"
                         />
 
-                        {/* TABLE CONTAINER (SCROLL SAFE) */}
                         <div style={{ overflowX: "auto", marginTop: 16 }}>
-                            <table className="data-table" role="table">
+                            <table className="data-table">
                                 <thead>
                                 <tr>
-                                    <th scope="col">Page</th>
-                                    <th scope="col">Type</th>
-                                    <th scope="col">Content</th>
+                                    <th>Page</th>
+                                    <th>Type</th>
+                                    <th>Content</th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 {paginated.map((row, i) => (
                                     <tr key={i}>
-                                        <td title={row.page}>{row.page}</td>
+                                        <td>{row.page}</td>
                                         <td>{row.type}</td>
                                         <td>
                                             {row.type === "Image" ? (
                                                 <img
                                                     src={row.content}
-                                                    alt="Scraped visual content"
                                                     className="table-image"
-                                                    loading="lazy"
                                                 />
                                             ) : row.type === "Link" ? (
                                                 <a
                                                     href={row.content}
                                                     target="_blank"
-                                                    rel="noopener noreferrer"
+                                                    rel="noreferrer"
                                                 >
                                                     {row.content}
                                                 </a>
                                             ) : (
-                                                <span>{row.content}</span>
+                                                row.content
                                             )}
                                         </td>
                                     </tr>
@@ -215,18 +228,16 @@ export default function App() {
                             </table>
                         </div>
 
-                        {/* PAGINATION */}
                         <div
                             style={{
                                 display: "flex",
                                 justifyContent: "space-between",
-                                alignItems: "center",
                                 marginTop: 16,
                             }}
                         >
                             <button
                                 disabled={page === 1}
-                                onClick={() => setPage((p) => p - 1)}
+                                onClick={() => setPage(page - 1)}
                             >
                                 Previous
                             </button>
@@ -237,17 +248,21 @@ export default function App() {
 
                             <button
                                 disabled={page === totalPages}
-                                onClick={() => setPage((p) => p + 1)}
+                                onClick={() => setPage(page + 1)}
                             >
                                 Next
                             </button>
                         </div>
 
+                        {/* DOWNLOAD BUTTONS */}
                         <button className="primary full" onClick={downloadCsv}>
                             Download CSV
                         </button>
 
-                        {/* AI SUMMARY — ALWAYS LAST */}
+                        <button className="primary full" onClick={downloadPdf}>
+                            Download PDF
+                        </button>
+
                         {result.summary && (
                             <div className="ai-summary" style={{ marginTop: 32 }}>
                                 <h4>AI Summary</h4>
